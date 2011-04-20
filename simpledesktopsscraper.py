@@ -35,40 +35,47 @@ class LinkExtractor(HTMLParser):
         return self.tags
 
 
-def clone():
-    cxn = HTTPConnection("simpledesktops.com")
-    lx = LinkExtractor()
-    page_index = 1
+class SimpleDesktopsScraper:
 
-    while True:
-        path = "/browse/" + str(page_index) + "/"
-        cxn.request("GET", path)
-        resp = cxn.getresponse()
-        if resp.status == 404:
-            break
-        html = resp.read()
-        html = html.replace("</scr' + 'ipt>", "") # hack around parser error
-        lx.feed(html)
-        page_index += 1
+    SITE_DOMAIN = "simpledesktops.com"
+    SITE_SCRAPE_PATH = "/browse/"
+    SITE_STATIC_DOMAIN = "static.simpledesktops.com"
+    SITE_STATIC_PATH = "/desktops/"
 
-    cxn.close()
-    lx.close()
+    def scrape(self, all, verbose):
+        cxn = HTTPConnection(self.SITE_DOMAIN)
+        lx = LinkExtractor()
+        page_index = 1
 
-    links = lx.extract()
-    desktops = []
-    for link in links:
-        if link.find("static.simpledesktops.com/desktops/") != -1:
-            desktops.append(link[42:])
+        while True:
+            path = self.SITE_SCRAPE_PATH + str(page_index) + "/"
+            cxn.request("GET", path)
+            resp = cxn.getresponse()
+            if resp.status == 404 or page_index > 2:
+                break
+            html = resp.read()
+            html = html.replace("</scr' + 'ipt>", "") # hack around parser error
+            lx.feed(html)
+            page_index += 1
 
-    cxn = HTTPConnection("static.simpledesktops.com")
+        cxn.close()
+        lx.close()
 
-    for desktop in desktops:
-        cxn.request("GET", "/desktops/" + desktop)
-        resp = cxn.getresponse()
-        image = resp.read()
-        filename = desktop.rsplit("/", 1)[1]
-        with open(filename, "wb") as f:
-            f.write(image)
+        links = lx.extract()
+        desktops = []
+        for link in links:
+            if link.find(self.SITE_STATIC_DOMAIN + self.SITE_STATIC_PATH) != -1:
+                desktops.append(link[42:])
+
+        cxn = HTTPConnection(self.SITE_STATIC_DOMAIN)
+
+        for desktop in desktops:
+            cxn.request("GET", self.SITE_STATIC_PATH + desktop)
+            resp = cxn.getresponse()
+            image = resp.read()
+            filename = desktop.rsplit("/", 1)[1]
+            with open(filename, "wb") as f:
+                f.write(image)
 
 
 def main():
@@ -85,7 +92,7 @@ def main():
 
     (options, args) = parser.parse_args()
 
-    clone()
+    SimpleDesktopsScraper().scrape(options.all, options.verbose)
 
 
 if __name__ == "__main__":
