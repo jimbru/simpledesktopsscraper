@@ -7,6 +7,7 @@
 import sys
 from HTMLParser import HTMLParser
 from httplib import HTTPConnection
+from optparse import OptionParser
 
 class LinkExtractor(HTMLParser):
 
@@ -34,7 +35,7 @@ class LinkExtractor(HTMLParser):
         return self.tags
 
 
-def clone(path):
+def clone():
     cxn = HTTPConnection("simpledesktops.com")
     lx = LinkExtractor()
     page_index = 1
@@ -70,47 +71,21 @@ def clone(path):
             f.write(image)
 
 
-def update(path):
-    print "This feature is currently broken."
-    return
-
-
-def print_usage():
-    print """
-    simpledesktops.py -- a script to scrape simpledesktops.com
-
-    Usage: python simpledesktops.py task [path]
-
-    Tasks:
-        clone  -- Download all desktops. Puts image files in 'path', if included,
-                  otherwise uses present working directory. Overwrites all duplicates.
-        update -- Scans for existing desktops in 'path', if included, or present
-                  working directory. Downloads all new desktops more recent than the
-                  most recent desktop that exists in 'path'.
-
-    Note: "Path" argument is currently broken in all modes. Deal with it.
-    """
-
-
 def main():
-    try:
-        task = sys.argv[1]
-    except IndexError:
-        print "  Error: Must include task. What do you want me to do?!"
-        print_usage()
-        return
+    usage = "Usage: %prog [options]"
+    parser = OptionParser(usage=usage)
+    parser.add_option(
+        "-a",
+        "--all",
+        action="store_true",
+        dest="all",
+        help="download all desktops ever"
+    )
+    parser.add_option("-v", "--verbose", action="store_true", dest="verbose")
 
-    try:
-        path = sys.argv[2]
-    except IndexError:
-        path = "" # use default
+    (options, args) = parser.parse_args()
 
-    if task == "clone":
-        clone(path)
-    elif task == "update":
-        update(path)
-    else:
-        print_usage()
+    clone()
 
 
 if __name__ == "__main__":
