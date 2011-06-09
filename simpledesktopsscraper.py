@@ -4,96 +4,80 @@
 #
 # A script to grab all the desktop images from simpledesktops.com
 
-import sys
-from HTMLParser import HTMLParser
-from httplib import HTTPConnection
+import os.path
+from cPickle import dump, load
 from optparse import OptionParser
+from shutil import copyfileobj
+from urllib2 import HTTPError, urlopen
 
-class LinkExtractor(HTMLParser):
+METADATA_FILE_NAME = ".sdscache"
+CUTOFF = 50;
+SCRAPE_URI = "http://simpledesktops.com/download/"
 
-    def __init__(self):
-        HTMLParser.__init__(self)
-        self.tags = []
+def scrape(dir=os.path.curdir, dry_run=False, force=False, verbose=False):
+    metadata = []
 
-    def handle_starttag(self, tag, attrs):
-        self.handler(tag, attrs)
+    # read metadata cache
+    if not dir:
+        dir = os.path.curdir
+    if not os.path.isdir(dir):
+        dir = os.path.dirname(dir)
 
-    def handle_startendtag(self, tag, attrs):
-        self.handler(tag, attrs)
+    metadata_file = os.path.join(dir, METADATA_FILE_NAME)
+    if not force:
+        try:
+            with open(metadata_file, "rb") as f:
+                metadata = load(f)
+        except IOError:
+            pass
 
-    def handler(self, tag, attrs):
-        if tag == "a":
-            self.tags.append(self.find_href(attrs))
+    # scrape new data
+    if metadata:
+        last_success = metadata[-1][0]
+    else:
+        last_success = 0
+    ii = last_success + 1
 
-    def find_href(self, attrs):
-        for attr in attrs:
-            if attr[0] == "href":
-                return attr[1]
-        return None
+    while (ii - last_success <= CUTOFF):
+        try:
+            uri = SCRAPE_URI + "?desktop=" + str(ii)
+            if verbose:
+                print "  GET " + uri,
+            resource = urlopen(SCRAPE_URI + "?desktop=" + str(ii))
+        except HTTPError:
+            if verbose:
+                print " => 404" 
+        else:
+            row = (ii, resource.geturl())
+            if verbose:
+                print " => 200"
+                print "    > " + str(row)
+            metadata.append(row)
+            if not dry_run:
+                image_file = os.path.join(dir, os.path.basename(resource.geturl()))
+                with open(image_file, "wb") as f:
+                    copyfileobj(resource, f, -1)
+            last_success = ii
+        ii += 1
 
-    def extract(self):
-        return self.tags
-
-
-class SimpleDesktopsScraper:
-
-    SITE_DOMAIN = "simpledesktops.com"
-    SITE_SCRAPE_PATH = "/browse/"
-    SITE_STATIC_DOMAIN = "static.simpledesktops.com"
-    SITE_STATIC_PATH = "/desktops/"
-
-    def scrape(self, all, verbose):
-        cxn = HTTPConnection(self.SITE_DOMAIN)
-        lx = LinkExtractor()
-        page_index = 1
-
-        while True:
-            path = self.SITE_SCRAPE_PATH + str(page_index) + "/"
-            cxn.request("GET", path)
-            resp = cxn.getresponse()
-            if resp.status == 404 or page_index > 2:
-                break
-            html = resp.read()
-            html = html.replace("</scr' + 'ipt>", "") # hack around parser error
-            lx.feed(html)
-            page_index += 1
-
-        cxn.close()
-        lx.close()
-
-        links = lx.extract()
-        desktops = []
-        for link in links:
-            if link.find(self.SITE_STATIC_DOMAIN + self.SITE_STATIC_PATH) != -1:
-                desktops.append(link[42:])
-
-        cxn = HTTPConnection(self.SITE_STATIC_DOMAIN)
-
-        for desktop in desktops:
-            cxn.request("GET", self.SITE_STATIC_PATH + desktop)
-            resp = cxn.getresponse()
-            image = resp.read()
-            filename = desktop.rsplit("/", 1)[1]
-            with open(filename, "wb") as f:
-                f.write(image)
-
+    # update metadata cache
+    with open(metadata_file, "wb") as f:
+        dump(metadata, f)
 
 def main():
-    usage = "Usage: %prog [options]"
+    usage = "Usage: %prog [options] [path]"
     parser = OptionParser(usage=usage)
-    parser.add_option(
-        "-a",
-        "--all",
-        action="store_true",
-        dest="all",
-        help="download all desktops ever"
-    )
+    parser.add_option("-d", "--dry-run", action="store_true", dest="dry_run")
+    parser.add_option("-f", "--force", action="store_true", dest="force")
     parser.add_option("-v", "--verbose", action="store_true", dest="verbose")
 
     (options, args) = parser.parse_args()
+    try:
+        path = args[0]
+    except IndexError:
+        path = None
 
-    SimpleDesktopsScraper().scrape(options.all, options.verbose)
-
+    scrape(path, options.dry_run, options.force, options.verbose)
 
 if __name__ == "__main__":
     main()

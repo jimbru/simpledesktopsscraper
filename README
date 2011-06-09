@@ -1,11 +1,5 @@
 simple desktops scraper
 
-I wanted to quickly download all the simple desktops. They're just so pretty. I threw some code together. You might find it useful too.
+I wanted to quickly download all the simple desktops. They're pretty. I threw this together. You might find it useful too.
 
-Just do:
-
-  python simpledesktopsscraper.py clone
-
-and it will download everything into your present working directory. There are theoretically other features but I haven't bothered to implement them yet.
-
-Use at your own peril.
+-jimbru
