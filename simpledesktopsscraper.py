@@ -5,13 +5,14 @@
 # A script to grab all the desktop images from simpledesktops.com
 
 import os.path
-from cPickle import dump, load
+from pickle import dump, load
 from optparse import OptionParser
 from shutil import copyfileobj
-from urllib2 import HTTPError, urlopen
+from urllib.error import HTTPError
+from urllib.request import urlopen
 
 METADATA_FILE_NAME = ".sdscache"
-CUTOFF = 50;
+CUTOFF = 50
 SCRAPE_URI = "http://simpledesktops.com/download/"
 
 def scrape(dir=os.path.curdir, dry_run=False, force=False, verbose=False):
@@ -42,16 +43,16 @@ def scrape(dir=os.path.curdir, dry_run=False, force=False, verbose=False):
         try:
             uri = SCRAPE_URI + "?desktop=" + str(ii)
             if verbose:
-                print "  GET " + uri,
+                print("  GET " + uri),
             resource = urlopen(SCRAPE_URI + "?desktop=" + str(ii))
         except HTTPError:
             if verbose:
-                print " => 404" 
+                print(" => 404" )
         else:
             row = (ii, resource.geturl())
             if verbose:
-                print " => 200"
-                print "    > " + str(row)
+                print(" => 200")
+                print("    > " + str(row))
             metadata.append(row)
             if not dry_run:
                 image_file = os.path.join(dir, os.path.basename(resource.geturl()))
